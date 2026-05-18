@@ -2,6 +2,7 @@ import allure
 import pytest
 
 from src.api.orders_api import OrdersAPI
+from src.data import messages
 
 
 def _create_order_and_get_track():
@@ -50,7 +51,7 @@ class TestOrdersGetByTrack:
     @allure.title("Нельзя получить заказ по несуществующему треку")
     @allure.description(
         "Пробуем запросить заказ по несуществующему треку. "
-        "Ожидаем код 404 или 400 и сообщение об ошибке."
+        "Ожидаем код 404 и сообщение 'Заказ не найден'."
     )
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_order_by_nonexistent_track(self):
@@ -60,22 +61,14 @@ class TestOrdersGetByTrack:
             response = OrdersAPI.get_order_by_track(nonexistent_track)
 
         with allure.step("Проверяем код ответа и сообщение об ошибке"):
-            assert response.status_code in (404, 400)
+            assert response.status_code == 404
             body = response.json()
-            message = body.get("message", "").lower()
-            assert (
-                "заказа с таким трекером не существует" in message
-                or "заказ не найден" in message
-                or "track not found" in message
-                or "not found" in message
-                or "недостаточно данных" in message
-                or "insufficient data" in message
-            )
+            assert body["message"] == messages.ORDER_NOT_FOUND
 
     @allure.title("Нельзя получить заказ без указания трека")
     @allure.description(
         "Отправляем запрос без параметра track. "
-        "Ожидаем код 400 и сообщение о нехватке данных."
+        "Ожидаем код 400 и сообщение 'Недостаточно данных для поиска'."
     )
     @allure.severity(allure.severity_level.NORMAL)
     def test_get_order_without_track(self):
@@ -83,12 +76,6 @@ class TestOrdersGetByTrack:
             response = OrdersAPI.get_order_by_track(None)
 
         with allure.step("Проверяем код ответа и сообщение об ошибке"):
-            assert response.status_code in (400, 404)
+            assert response.status_code == 400
             body = response.json()
-            message = body.get("message", "").lower()
-            assert (
-                "недостаточно данных" in message
-                or "insufficient data" in message
-                or "требуется номер трека" in message
-                or "track is required" in message
-            )
+            assert body["message"] == messages.ORDER_SEARCH_NOT_ENOUGH_DATA

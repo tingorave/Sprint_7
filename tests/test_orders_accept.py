@@ -3,10 +3,11 @@ import pytest
 
 from src.api.courier_api import CourierAPI
 from src.api.orders_api import OrdersAPI
+from src.data import messages
 
 
 def _create_order():
-    """Вспомогательная функция для создания заказа и получения его id."""
+    """Вспомогательная функция для создания заказа и получения его track."""
     payload = {
         "firstName": "Валентин",
         "lastName": "Миханоша",
@@ -44,7 +45,7 @@ class TestOrdersAccept:
     @allure.description(
         "Создаём курьера и заказ, получаем id заказа по треку, "
         "после чего принимаем заказ от имени курьера. "
-        "Ожидаем успешный код ответа и признак ok=true."
+        "Ожидаем код 200 и тело {'ok': true}."
     )
     @allure.severity(allure.severity_level.CRITICAL)
     def test_accept_order_success(self, new_courier):
@@ -69,16 +70,14 @@ class TestOrdersAccept:
             response = OrdersAPI.accept_order(order_id, courier_id)
 
         with allure.step("Проверяем код ответа и тело"):
-            assert response.status_code in (200, 201, 202)
+            assert response.status_code == 200
             body = response.json()
-            ok = body.get("ok")
-            if ok is not None:
-                assert ok is True
+            assert body.get("ok") is True
 
     @allure.title("Нельзя принять заказ с несуществующим id заказа")
     @allure.description(
         "Пробуем принять заказ с несуществующим id. "
-        "Ожидаем код 404 или 400 и сообщение об ошибке."
+        "Ожидаем код 404 и сообщение 'Заказа с таким id не существует'."
     )
     @allure.severity(allure.severity_level.NORMAL)
     def test_accept_order_nonexistent_order_id(self, new_courier):
@@ -99,21 +98,37 @@ class TestOrdersAccept:
             response = OrdersAPI.accept_order(nonexistent_order_id, courier_id)
 
         with allure.step("Проверяем код ответа и сообщение об ошибке"):
-            assert response.status_code in (404, 400)
+            assert response.status_code == 404
             body = response.json()
-            message = body.get("message", "").lower()
-            assert (
-                "заказа с таким id не существует" in message
-                or "order id not found" in message
-                or "недостаточно данных" in message
-                or "insufficient data" in message
-                or "not found" in message
-            )
+            assert body["message"] == messages.ORDER_ID_NOT_FOUND
+
+    @allure.title("Нельзя принять заказ с несуществующим id курьера")
+    @allure.description(
+        "Создаём заказ и пробуем принять его с несуществующим id курьера. "
+        "Ожидаем код 404 и сообщение 'Курьера с таким id не существует'."
+    )
+    @allure.severity(allure.severity_level.NORMAL)
+    def test_accept_order_nonexistent_courier_id(self):
+        with allure.step("Создаём новый заказ и получаем его track"):
+            track = _create_order()
+
+        with allure.step("Получаем id заказа по его track"):
+            order_id = _get_order_id_by_track(track)
+
+        nonexistent_courier_id = 99999999
+
+        with allure.step("Пробуем принять заказ с несуществующим id курьера"):
+            response = OrdersAPI.accept_order(order_id, nonexistent_courier_id)
+
+        with allure.step("Проверяем код ответа и сообщение об ошибке"):
+            assert response.status_code == 404
+            body = response.json()
+            assert body["message"] == messages.COURIER_ID_NOT_FOUND
 
     @allure.title("Нельзя принять заказ без id курьера")
     @allure.description(
         "Создаём заказ и пробуем принять его без параметра courierId. "
-        "Ожидаем код 400 и сообщение о нехватке данных."
+        "Ожидаем код 400 и сообщение 'Недостаточно данных для поиска'."
     )
     @allure.severity(allure.severity_level.NORMAL)
     def test_accept_order_without_courier_id(self):
@@ -127,12 +142,6 @@ class TestOrdersAccept:
             response = OrdersAPI.accept_order(order_id, courier_id=None)
 
         with allure.step("Проверяем код ответа и сообщение об ошибке"):
-            assert response.status_code in (400, 404)
+            assert response.status_code == 400
             body = response.json()
-            message = body.get("message", "").lower()
-            assert (
-                "недостаточно данных" in message
-                or "insufficient data" in message
-                or "нужно указать id курьера" in message
-                or "courier id is required" in message
-            )
+            assert body["message"] == messages.ORDER_SEARCH_NOT_ENOUGH_DATA

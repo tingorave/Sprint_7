@@ -20,18 +20,10 @@ class TestOrdersList:
             assert response.status_code == 200
             body = response.json()
 
-            orders = (
-                body.get("orders")
-                or body.get("data")
-                or body.get("items")
-            )
-
+            orders = body.get("orders")
             assert isinstance(orders, list)
 
             if orders:
                 first = orders[0]
                 assert isinstance(first, dict)
-                assert (
-                    "track" in first
-                    or "id" in first
-                )
+                assert "track" in first

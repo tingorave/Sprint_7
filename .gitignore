@@ -11,9 +11,8 @@ __pycache__/
 
 # Allure отчёты
 allure-report/
-allure_results/
 
-# Разное
+# IDE и системные файлы
 .idea/
 .vscode/
 .DS_Store
